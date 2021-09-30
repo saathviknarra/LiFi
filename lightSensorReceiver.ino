@@ -30,6 +30,19 @@
 int sensorPin = A0;    // select the input pin for the potentiometer
 int ledPin = 13;      // select the pin for the LED
 int sensorValue = 0;  // variable to store the value coming from the sensor
+const int windowSize = 100;
+
+// circuler buffer
+int valueArray[100];
+int lastAverage;
+int index = 0;
+int len = 0;
+int sum = 0;
+int prev = 0;
+int dataMin = 0;
+int dataMax = 0;
+int middleIndex = 50;
+int calData;
 
 void setup() {
   // declare the ledPin as an OUTPUT:
@@ -40,15 +53,33 @@ void setup() {
 void loop() {
   // read the value from the sensor:
   sensorValue = analogRead(sensorPin);
-  //Serial.print("test");
-  Serial.print(sensorValue);
+
+  // update the valueArray and its params
+  prev = valueArray[index];
+  valueArray[index]=sensorValue;
+  index = (index+1)%windowSize;
+  len = (len+1)>windowSize ? windowSize : len+1;
+  sum = sum - prev + sensorValue;
+  if( prev==dataMin ){
+    dataMin=1024;
+    for(int i=0; i<windowSize; i++){ // TODO: this loop is crazy; needs optimization
+      dataMin = valueArray[i]<dataMin ? valueArray[i] : dataMin;  
+    }  
+  } else if (prev == dataMax){
+    dataMax=0;
+    for(int i=0; i<windowSize; i++){ // TODO: this loop is crazy; needs optimization
+      dataMax = valueArray[i]>dataMax ? valueArray[i] : dataMax;  
+    }  
+  }
+
+  // calibrate the middle point
+  if(len==windowSize){
+    calData = (valueArray[middleIndex]-sum/windowSize)/(dataMax-dataMin)*100+50;  
+    middleIndex = (middleIndex+1)%windowSize;
+  }
+
+  // print it
+  Serial.print(calData);
   Serial.print("\n");
-  // turn the led Pin on
-  //digitalWrite(ledPin, HIGH);
-  // stop the program for <sensorValue> milliseconds:
-  delay(2);
-  // turn the ledPin off:
-  //digitalWrite(ledPin, LOW);
-  // stop the program for for <sensorValue> milliseconds:
-  //delay(2);
+  delay(1);
 }
