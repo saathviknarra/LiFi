@@ -33,25 +33,16 @@ int sensorValue = 0;  // variable to store the value coming from the sensor
 const int windowSize = 100;
 
 // circuler buffer
-int valueArray[3][100];
-
-// 
-#define DATA 0
-#define DIFF 1
-#define SAMP 2
-
-
+int valueArray[100];
 int lastAverage;
 int index = 0;
 int len = 0;
-int sum = 0;
+double sum = 0;
 int prev = 0;
-int dataMin = 0;
+int dataMin = 1024;
 int dataMax = 0;
 int middleIndex = 50;
 int calData;
-int i, j, k;
-int tmp0, tmp1, tmp2;
 
 void setup() {
   // declare the ledPin as an OUTPUT:
@@ -60,47 +51,40 @@ void setup() {
 }
 
 void loop() {
+  // read the value from the sensor:
+  sensorValue = analogRead(sensorPin);
 
-  while(1) {
-    // read the value from the sensor:
-    sensorValue = analogRead(sensorPin);
-  
-    // update the valueArray and its params
-    prev = valueArray[DATA][index];
-    valueArray[DATA][index]=sensorValue;
-    index = (index+1)%windowSize;
-    len = (len+1)>windowSize ? windowSize : len+1;
-    sum = sum - prev + sensorValue;
-    if( prev==dataMin ){
-      dataMin=1024;
-      for(int i=0; i<windowSize; i++){ // TODO: this loop is crazy; needs optimization
-        dataMin = valueArray[DATA][i]<dataMin ? valueArray[DATA][i] : dataMin;  
-      }  
-    } else if (prev == dataMax){
-      dataMax=0;
-      for(int i=0; i<windowSize; i++){ // TODO: this loop is crazy; needs optimization
-        dataMax = valueArray[DATA][i]>dataMax ? valueArray[DATA][i] : dataMax;  
-      }  
-    }
-  
-    // calibrate the middle point
-    if(len==windowSize){
-      calData = (valueArray[DATA][middleIndex]-sum/windowSize)/(dataMax-dataMin)*100+50;  
-      middleIndex = (middleIndex+1)%windowSize;
-    }
-
-    // update the DIFF if possible 
-    if(len>2) {
-      tmp0 = (index-2+windowSize)%windowSize;
-      tmp1 = (index-1+windowSize)%windowSize
-      valueArray[DIFF][tmp1] = valueArray[DIFF][index]-valueArray[DIFF][tmp0];
-    }
-    
-    // print it
-    Serial.print(calData);
-    Serial.print("\n");
-  
-    // remove the delay
-    //delay(1);
+  // update the valueArray and its params
+  prev = valueArray[index];
+  valueArray[index]=sensorValue;
+  index = (index+1)%windowSize;
+  len = (len+1)>windowSize ? windowSize : len+1;
+  sum = sum - prev + sensorValue;
+  if( prev==dataMin ){
+    dataMin=1024;
+    for(int i=0; i<windowSize; i++){ // TODO: this loop is crazy; needs optimization
+      dataMin = valueArray[i]<dataMin ? valueArray[i] : dataMin;  
+    }  
+  } else if (prev == dataMax){
+    dataMax=0;
+    for(int i=0; i<windowSize; i++){ // TODO: this loop is crazy; needs optimization
+      dataMax = valueArray[i]>dataMax ? valueArray[i] : dataMax;  
+    }  
   }
+  if(sensorValue > dataMax){
+    dataMax = sensorValue;
+  }else if(sensorValue < dataMin){
+    dataMin = sensorValue;
+  }
+
+  // calibrate the middle point
+  if(len==windowSize){
+    calData = (valueArray[middleIndex]-sum/windowSize)/(dataMax-dataMin)*100+50;  
+    middleIndex = (middleIndex+1)%windowSize;
+  }
+
+  // print it
+  Serial.print(calData);
+  Serial.print("\n");
+  delay(1);
 }
