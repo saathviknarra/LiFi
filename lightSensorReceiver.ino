@@ -42,13 +42,17 @@ int index = 0;
 int len = 0;
 double sum = 0;
 int prev = 0;
-int diffPrev = [0,0];//first element is Diffvalue second is Index
+//int diffPrev = [0,0];//first element is Diffvalue second is Index
 int dataMin = 1024;
 int dataMax = 0;
+int diffMax = 0;
+int diffMin = 50;
 int middleIndex = 50;
 int calData;
 int i,j,k;
 int tmp0,tmp1,tmp2; 
+int upperCutDiff;
+int lowerCutDiff;
 
 void setup() {
   // declare the ledPin as an OUTPUT:
@@ -92,12 +96,36 @@ void loop() {
   if(len > 2){
     tmp0 = (index-2+windowSize)%windowSize;
     tmp1 = (index-1+windowSize)%windowSize;
+    prev = valueArray[DIFF][tmp1];
     valueArray[DIFF][tmp1] = valueArray[DATA][index]-valueArray[DATA][tmp0];
+    if( prev==diffMin){
+    diffMin=1024;
+    for(int i=0; i<windowSize; i++){ // TODO: this loop is crazy; needs optimization
+      diffMin = valueArray[DIFF][i]<diffMin ? valueArray[DIFF][i] : diffMin;  
+    }  
+    } else if (prev == diffMax){
+    diffMax=0;
+    for(int i=0; i<windowSize; i++){ // TODO: this loop is crazy; needs optimization
+      diffMax = valueArray[DIFF][i]>diffMax ? valueArray[DIFF][i] : diffMax;  
+    }  
+  }
+    if(valueArray[DIFF][tmp1] > diffMax){
+      diffMax = valueArray[DIFF][tmp1];
+    }else if(valueArray[DIFF][tmp1] < diffMin){
+      diffMin = valueArray[DIFF][tmp1];
+    }
+    upperCutDiff = diffMax - ((diffMax - diffMin)/10); 
+    lowerCutDiff = diffMin + ((diffMax - diffMin)/10); 
+  }
+  if(valueArray[DIFF][tmp1] >= upperCutDiff){
+      Serial.print(valueArray[DIFF][tmp1]);
+      Serial.print("\n");
+  }else if(valueArray[DIFF][tmp1] <= lowerCutDiff){
+      Serial.print(valueArray[DIFF][tmp1]);
+      Serial.print("\n");
   }
 
   // print it
-  Serial.print(valueArray[DIFF][tmp1]);
-  Serial.print("\n");
   //delay(1);
   }
 }
