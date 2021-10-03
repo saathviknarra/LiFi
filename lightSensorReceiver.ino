@@ -33,14 +33,16 @@ int sensorValue = 0;  // variable to store the value coming from the sensor
 const int windowSize = 100;
 
 // circuler buffer
+int period;
 int valueArray[3][windowSize];
 #define DATA 0
 #define DIFF 1
 #define SAMP 2
+int maxAndMinDiffIndex[windowSize];
 int lastAverage;
-int index = 0;
+int index, indexcounter, counter = 0;
 int len = 0;
-double sum = 0;
+double sum, sum2 = 0;
 int prev = 0;
 //int diffPrev = [0,0];//first element is Diffvalue second is Index
 int dataMin = 1024;
@@ -49,83 +51,124 @@ int diffMax = 0;
 int diffMin = 50;
 int middleIndex = 50;
 int calData;
-int i,j,k;
-int tmp0,tmp1,tmp2; 
+int i, j, k;
+int tmp0, tmp1, tmp2;
 int upperCutDiff;
 int lowerCutDiff;
+int indexMaxMin = 0;
+int newMax = -1022;
+int newMin = 1023;
 
 void setup() {
   // declare the ledPin as an OUTPUT:
   pinMode(ledPin, OUTPUT);
-  Serial.begin(9600); 
+  Serial.begin(9600);
 }
 
 void loop() {
   // read the value from the sensor:
-  while(1){
-  sensorValue = analogRead(sensorPin);
+  while (1) {
+    sensorValue = analogRead(sensorPin);
 
-  // update the valueArray and its params
-  prev = valueArray[DATA][index];
-  valueArray[DATA][index]=sensorValue;
-  index = (index+1)%windowSize;
-  len = (len+1)>windowSize ? windowSize : len+1;
-  sum = sum - prev + sensorValue;
-  if( prev==dataMin ){
-    dataMin=1024;
-    for(int i=0; i<windowSize; i++){ // TODO: this loop is crazy; needs optimization
-      dataMin = valueArray[DATA][i]<dataMin ? valueArray[DATA][i] : dataMin;  
-    }  
-  } else if (prev == dataMax){
-    dataMax=0;
-    for(int i=0; i<windowSize; i++){ // TODO: this loop is crazy; needs optimization
-      dataMax = valueArray[DATA][i]>dataMax ? valueArray[DATA][i] : dataMax;  
-    }  
-  }
-  if(sensorValue > dataMax){
-    dataMax = sensorValue;
-  }else if(sensorValue < dataMin){
-    dataMin = sensorValue;
-  }
-
-  // calibrate the middle point
-  if(len==windowSize){
-    calData = (valueArray[DATA][middleIndex]-sum/windowSize)/(dataMax-dataMin)*100+50;  
-    middleIndex = (middleIndex+1)%windowSize;
-  }
-  if(len > 2){
-    tmp0 = (index-2+windowSize)%windowSize;
-    tmp1 = (index-1+windowSize)%windowSize;
-    prev = valueArray[DIFF][tmp1];
-    valueArray[DIFF][tmp1] = valueArray[DATA][index]-valueArray[DATA][tmp0];
-    if( prev==diffMin){
-    diffMin=1024;
-    for(int i=0; i<windowSize; i++){ // TODO: this loop is crazy; needs optimization
-      diffMin = valueArray[DIFF][i]<diffMin ? valueArray[DIFF][i] : diffMin;  
-    }  
-    } else if (prev == diffMax){
-    diffMax=0;
-    for(int i=0; i<windowSize; i++){ // TODO: this loop is crazy; needs optimization
-      diffMax = valueArray[DIFF][i]>diffMax ? valueArray[DIFF][i] : diffMax;  
-    }  
-  }
-    if(valueArray[DIFF][tmp1] > diffMax){
-      diffMax = valueArray[DIFF][tmp1];
-    }else if(valueArray[DIFF][tmp1] < diffMin){
-      diffMin = valueArray[DIFF][tmp1];
+    // update the valueArray and its params
+    prev = valueArray[DATA][index];
+    valueArray[DATA][index] = sensorValue;
+    index = (index + 1) % windowSize;
+    len = (len + 1) > windowSize ? windowSize : len + 1;
+    sum = sum - prev + sensorValue;
+    if ( prev == dataMin ) {
+      dataMin = 1024;
+      for (int i = 0; i < windowSize; i++) { // TODO: this loop is crazy; needs optimization
+        dataMin = valueArray[DATA][i] < dataMin ? valueArray[DATA][i] : dataMin;
+      }
+    } else if (prev == dataMax) {
+      dataMax = 0;
+      for (int i = 0; i < windowSize; i++) { // TODO: this loop is crazy; needs optimization
+        dataMax = valueArray[DATA][i] > dataMax ? valueArray[DATA][i] : dataMax;
+      }
     }
-    upperCutDiff = diffMax - ((diffMax - diffMin)/10); 
-    lowerCutDiff = diffMin + ((diffMax - diffMin)/10); 
-  }
-  if(valueArray[DIFF][tmp1] >= upperCutDiff){
-      Serial.print(valueArray[DIFF][tmp1]);
-      Serial.print("\n");
-  }else if(valueArray[DIFF][tmp1] <= lowerCutDiff){
-      Serial.print(valueArray[DIFF][tmp1]);
-      Serial.print("\n");
-  }
+    if (sensorValue > dataMax) {
+      dataMax = sensorValue;
+    } else if (sensorValue < dataMin) {
+      dataMin = sensorValue;
+    }
 
-  // print it
-  //delay(1);
+    // calibrate the middle point
+    if (len == windowSize) {
+      calData = (valueArray[DATA][middleIndex] - sum / windowSize) / (dataMax - dataMin) * 100 + 50;
+      middleIndex = (middleIndex + 1) % windowSize;
+    }
+    if (len > 2) {
+      tmp0 = (index - 2 + windowSize) % windowSize;
+      tmp1 = (index - 1 + windowSize) % windowSize;
+      prev = valueArray[DIFF][tmp1];
+      valueArray[DIFF][tmp1] = valueArray[DATA][index] - valueArray[DATA][tmp0];
+      if ( prev == diffMin) {
+        diffMin = 1024;
+        for (int i = 0; i < windowSize; i++) { // TODO: this loop is crazy; needs optimization
+          diffMin = valueArray[DIFF][i] < diffMin ? valueArray[DIFF][i] : diffMin;
+        }
+      } else if (prev == diffMax) {
+        diffMax = 0;
+        for (int i = 0; i < windowSize; i++) { // TODO: this loop is crazy; needs optimization
+          diffMax = valueArray[DIFF][i] > diffMax ? valueArray[DIFF][i] : diffMax;
+        }
+      }
+      if (valueArray[DIFF][tmp1] > diffMax) {
+        diffMax = valueArray[DIFF][tmp1];
+      } else if (valueArray[DIFF][tmp1] < diffMin) {
+        diffMin = valueArray[DIFF][tmp1];
+      }
+      upperCutDiff = diffMax - ((diffMax - diffMin) / 10);
+      lowerCutDiff = diffMin + ((diffMax - diffMin) / 10);
+    }
+    if (valueArray[DIFF][tmp1] >= upperCutDiff) {
+      if (newMax == -1023) {
+        maxAndMinDiffIndex[indexcounter] = indexMaxMin;
+        Serial.print((maxAndMinDiffIndex[indexcounter] - maxAndMinDiffIndex[(indexcounter+windowSize-1)%windowSize]+windowSize)%windowSize);//TODO: needs to be fixed
+        indexcounter = (indexcounter + 1) % windowSize;
+//        Serial.print (indexMaxMin);
+        Serial.print("\n");
+//        Serial.print("newMin = ");
+//        Serial.print (newMin);
+//        Serial.print("\n");
+      }
+      newMin = 1024;
+      indexMaxMin = valueArray[DIFF][tmp1] > newMax ? tmp1 : indexMaxMin;
+      newMax = valueArray[DIFF][tmp1] > newMax ? valueArray[DIFF][tmp1] : newMax;
+      //      Serial.print(valueArray[DIFF][tmp1]);
+      //      Serial.print("\n");
+    } else if (valueArray[DIFF][tmp1] <= lowerCutDiff) {
+      if (newMin == 1024) {
+        maxAndMinDiffIndex[indexcounter] = indexMaxMin;
+        Serial.print((maxAndMinDiffIndex[indexcounter] - maxAndMinDiffIndex[(indexcounter+windowSize-1)%windowSize]+windowSize)%windowSize);//TODO: needs to be fixed
+        indexcounter = (indexcounter + 1) % windowSize;
+//        Serial.print (indexMaxMin);
+        Serial.print("\n");
+//        Serial.print("newMax = ");
+//        Serial.print(newMax);
+//        Serial.print("\n");
+      }
+      newMax = -1023;
+      indexMaxMin = valueArray[DIFF][tmp1] < newMin ? tmp1 : indexMaxMin;
+//      Serial.print("Diff = ");
+//      Serial.print(valueArray[DIFF][tmp1]);
+//      Serial.print("\n");
+      newMin = valueArray[DIFF][tmp1] < newMin ? valueArray[DIFF][tmp1] : newMin;
+      //      Serial.print(valueArray[DIFF][tmp1]);
+      //      Serial.print("\n");
+    }
+//    Serial.print(valueArray[DIFF][tmp1]);
+//    Serial.print("\n");
+//    if(indexMaxMin >= windowSize){
+    //      for(int a = 49; a < windowSize; a++){
+    //        sum2 += maxAndMinDiffIndex[a] - maxAndMinDiffIndex[a-1];
+    //        counter++;
+    //      }
+    //      period = sum2/counter;
+    //}
+
+    // print it
+    delay(2);
   }
 }
