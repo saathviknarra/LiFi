@@ -33,16 +33,18 @@ int sensorValue = 0;  // variable to store the value coming from the sensor
 const int windowSize = 100;
 
 // circuler buffer
+const int settlingPoint = 300;
+int averagePeriod = 0;
 int period;
-int valueArray[3][windowSize];
+int valueArray[2][windowSize];
+int tPeriod[windowSize];
 #define DATA 0
 #define DIFF 1
-#define SAMP 2
 int maxAndMinDiffIndex[windowSize];
 int lastAverage;
-int index, indexcounter, counter = 0;
+int index, indexcounter, counter, periodIndex = 0;
 int len = 0;
-double sum, sum2 = 0;
+double sum, sum2, sum3 = 0;
 int prev = 0;
 //int diffPrev = [0,0];//first element is Diffvalue second is Index
 int dataMin = 1024;
@@ -67,7 +69,7 @@ void setup() {
 
 void loop() {
   // read the value from the sensor:
-  while (1) {
+  while (1) {//this is calibration loop
     sensorValue = analogRead(sensorPin);
 
     // update the valueArray and its params
@@ -122,13 +124,19 @@ void loop() {
       upperCutDiff = diffMax - ((diffMax - diffMin) / 10);
       lowerCutDiff = diffMin + ((diffMax - diffMin) / 10);
     }
-    if (valueArray[DIFF][tmp1] >= upperCutDiff) {
+    if (valueArray[DIFF][tmp1] >= upperCutDiff) {//finding values above uppercut for DIFF
       if (newMax == -1023) {
         maxAndMinDiffIndex[indexcounter] = indexMaxMin;
-        Serial.print((maxAndMinDiffIndex[indexcounter] - maxAndMinDiffIndex[(indexcounter+windowSize-1)%windowSize]+windowSize)%windowSize);//TODO: needs to be fixed
+//        Serial.print((maxAndMinDiffIndex[indexcounter] - maxAndMinDiffIndex[(indexcounter+windowSize-1)%windowSize]+windowSize)%windowSize);//TODO: needs to be fixed
+        prev = tPeriod[indexcounter];
+        tPeriod[indexcounter] = (maxAndMinDiffIndex[indexcounter] - maxAndMinDiffIndex[(indexcounter+windowSize-1)%windowSize]+windowSize)%windowSize;//finding individual periods
+        sum3 += tPeriod[indexcounter]-prev;
+//        Serial.print(sum3/windowSize);
+        periodIndex++;
+        
         indexcounter = (indexcounter + 1) % windowSize;
 //        Serial.print (indexMaxMin);
-        Serial.print("\n");
+//        Serial.print("\n");
 //        Serial.print("newMin = ");
 //        Serial.print (newMin);
 //        Serial.print("\n");
@@ -138,13 +146,19 @@ void loop() {
       newMax = valueArray[DIFF][tmp1] > newMax ? valueArray[DIFF][tmp1] : newMax;
       //      Serial.print(valueArray[DIFF][tmp1]);
       //      Serial.print("\n");
-    } else if (valueArray[DIFF][tmp1] <= lowerCutDiff) {
+    } else if (valueArray[DIFF][tmp1] <= lowerCutDiff) {//finding values above uppercut for DIFF
       if (newMin == 1024) {
         maxAndMinDiffIndex[indexcounter] = indexMaxMin;
-        Serial.print((maxAndMinDiffIndex[indexcounter] - maxAndMinDiffIndex[(indexcounter+windowSize-1)%windowSize]+windowSize)%windowSize);//TODO: needs to be fixed
+//        Serial.print((maxAndMinDiffIndex[indexcounter] - maxAndMinDiffIndex[(indexcounter+windowSize-1)%windowSize]+windowSize)%windowSize);//TODO: needs to be fixed
+        prev = tPeriod[indexcounter];
+        tPeriod[indexcounter] = (maxAndMinDiffIndex[indexcounter] - maxAndMinDiffIndex[(indexcounter+windowSize-1)%windowSize]+windowSize)%windowSize;//finding individual periods
+        sum3 += tPeriod[indexcounter]-prev;
+//        Serial.print(sum3/windowSize);
+        periodIndex++;
+        
         indexcounter = (indexcounter + 1) % windowSize;
 //        Serial.print (indexMaxMin);
-        Serial.print("\n");
+//        Serial.print("\n");
 //        Serial.print("newMax = ");
 //        Serial.print(newMax);
 //        Serial.print("\n");
@@ -158,6 +172,9 @@ void loop() {
       //      Serial.print(valueArray[DIFF][tmp1]);
       //      Serial.print("\n");
     }
+    if(periodIndex == settlingPoint){
+          break;
+        }
 //    Serial.print(valueArray[DIFF][tmp1]);
 //    Serial.print("\n");
 //    if(indexMaxMin >= windowSize){
@@ -169,6 +186,13 @@ void loop() {
     //}
 
     // print it
+    //Serial.print(sum3/windowSize);
+    //Serial.print("\n");
     delay(2);
   }
+  Serial.print("\n");
+  Serial.print("Calibration Done!");
+  Serial.print("\n");
+  Serial.print(sum3/windowSize);
+  while(1);
 }
