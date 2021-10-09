@@ -30,19 +30,24 @@
 int sensorPin = A0;    // select the input pin for the potentiometer
 int ledPin = 13;      // select the pin for the LED
 int sensorValue = 0;  // variable to store the value coming from the sensor
+int doneCalibrating = 10;
 const int windowSize = 100;
+int button = 9;
 
 // circuler buffer
-const int settlingPoint = 300;
+int symbol = 0;
+bool newBit = false;
+bool idle = true;
+const int settlingPoint = 120;
 int averagePeriod = 0;
-int period;
+double period;
 int valueArray[2][windowSize];
 int tPeriod[windowSize];
 #define DATA 0
 #define DIFF 1
 int maxAndMinDiffIndex[windowSize];
 int lastAverage;
-int index, indexcounter, counter, periodIndex = 0;
+int index, indexcounter, counter, periodIndex, symbolCounter = 0;
 int len = 0;
 double sum, sum2, sum3 = 0;
 int prev = 0;
@@ -61,15 +66,19 @@ int indexMaxMin = 0;
 int newMax = -1022;
 int newMin = 1023;
 
+double sampleCounter=0;
+
 void setup() {
   // declare the ledPin as an OUTPUT:
   pinMode(ledPin, OUTPUT);
+  pinMode(doneCalibrating, OUTPUT);
+  pinMode(button, INPUT);
   Serial.begin(9600);
 }
 
-void loop() {
-  // read the value from the sensor:
-  while (1) {//this is calibration loop
+
+   
+void calibrationFunc(){
     sensorValue = analogRead(sensorPin);
 
     // update the valueArray and its params
@@ -100,6 +109,14 @@ void loop() {
       calData = (valueArray[DATA][middleIndex] - sum / windowSize) / (dataMax - dataMin) * 100 + 50;
       middleIndex = (middleIndex + 1) % windowSize;
     }
+}
+
+void loop() {
+  while(digitalRead(button));
+  Serial.println("Button works");
+  // read the value from the sensor:
+  while (1) {//this is calibration loop
+    calibrationFunc();
     if (len > 2) {
       tmp0 = (index - 2 + windowSize) % windowSize;
       tmp1 = (index - 1 + windowSize) % windowSize;
@@ -173,6 +190,7 @@ void loop() {
       //      Serial.print("\n");
     }
     if(periodIndex == settlingPoint){
+      
           break;
         }
 //    Serial.print(valueArray[DIFF][tmp1]);
@@ -193,6 +211,45 @@ void loop() {
   Serial.print("\n");
   Serial.print("Calibration Done!");
   Serial.print("\n");
-  Serial.print(sum3/windowSize);
-  while(1);
+  period = sum3/windowSize*1.0;
+  sampleCounter = 0;
+  Serial.print(period);
+  Serial.print("\n");
+  digitalWrite(doneCalibrating, HIGH);
+  delay(100);
+  digitalWrite(doneCalibrating, LOW);
+  delay(2000);
+  while(1){
+      sensorValue = analogRead(sensorPin);
+      calData = (sensorValue - sum / windowSize) / (dataMax - dataMin) * 100 + 50;//can be replaced with up and lower bounds representiting 0 and 1
+      //Serial.println(calData);
+      if(idle && calData < 20){
+        //Serial.println(calData);
+        symbol = (symbol << 1) + 1;
+        symbolCounter = 1;
+        idle = !idle;
+        sampleCounter = period;
+      }else if(!idle){
+        sampleCounter--;
+        if(sampleCounter < 1){
+        //Serial.println(calData);
+        if(calData < 20){
+          symbol = (symbol << 1) + 1;
+        }else{
+          symbol = (symbol << 1) + 0;
+        }
+        symbolCounter++;
+        if(symbolCounter % 4 == 0){
+            Serial.print("Symbol = ");
+            Serial.println(symbol);
+            symbolCounter = 0;
+            while(1);
+          }
+        sampleCounter += period;
+        }
+      }
+      
+      //1010
+      delay(2);
+  }
 }
