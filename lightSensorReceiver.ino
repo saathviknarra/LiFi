@@ -219,21 +219,26 @@ void loop() {
   delay(100);
   digitalWrite(doneCalibrating, LOW);
   delay(2000);
+  int testCounter = 0;
   while(1){
       sensorValue = analogRead(sensorPin);
       calData = (sensorValue - sum / windowSize) / (dataMax - dataMin) * 100 + 50;//can be replaced with up and lower bounds representiting 0 and 1
       //Serial.println(calData);
+      testCounter++;
       if(idle && calData < 20){
         //Serial.println(calData);
-        symbol = (symbol << 1) + 1;
-        symbolCounter = 1;
+        //Serial.println(testCounter);
+        //symbol = (symbol << 1) + 1;
+        symbolCounter = 0;
         idle = !idle;
-        sampleCounter = period;
+        sampleCounter = (period)/2;
       }else if(!idle){
         sampleCounter--;
+        //Serial.println(calData);
         if(sampleCounter < 1){
         //Serial.println(calData);
-        if(calData < 20){
+        //Serial.println(testCounter);
+        if(calData < 40){
           symbol = (symbol << 1) + 1;
         }else{
           symbol = (symbol << 1) + 0;
