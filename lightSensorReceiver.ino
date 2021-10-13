@@ -12,7 +12,7 @@
     one side pin (either one) to ground
     the other side pin to +5V
   - LED
-    anode (long leg) attached to digital output 13 through 220 ohm resistor
+    anode (long leg) attached to digital output 13 through 220 ohm resistor   
     cathode (short leg) attached to ground
 
   - Note: because most Arduinos have a built-in LED attached to pin 13 on the
@@ -34,8 +34,19 @@ int doneCalibrating = 10;
 const int windowSize = 100;
 int button = 9;
 
+//for Manchester 4:5 encoding
+const int preCode = 21;
+char decoding[32] = {\
+  0b0000, 0b0000, 0b0000, 0b0000, 0b0000, 0b0000, 0b0000, 0b0000,\
+  0b0000, 0b0001, 0b0100, 0b0101, 0b0000, 0b0000, 0b0110, 0b0111,\
+  0b0000, 0b0000, 0b1000, 0b1001, 0b0010, 0b0011, 0b1010, 0b1011,\
+  0b0000, 0b0000, 0b1100, 0b1101, 0b1110, 0b1111, 0b0000, 0b0000 \
+};
+
 // circuler buffer
-int symbol = 0;
+bool preCodeFlag = false;
+char printOutput = 0;   
+int symbol;
 bool newBit = false;
 bool idle = true;
 const int settlingPoint = 120;
@@ -225,7 +236,7 @@ void loop() {
       calData = (sensorValue - sum / windowSize) / (dataMax - dataMin) * 100 + 50;//can be replaced with up and lower bounds representiting 0 and 1
       //Serial.println(calData);
       testCounter++;
-      if(idle && calData < 20){
+      if(idle && calData < 50){
         //Serial.println(calData);
         //Serial.println(testCounter);
         //symbol = (symbol << 1) + 1;
@@ -238,17 +249,30 @@ void loop() {
         if(sampleCounter < 1){
         //Serial.println(calData);
         //Serial.println(testCounter);
-        if(calData < 40){
+        if(calData < 50){
           symbol = (symbol << 1) + 1;
         }else{
           symbol = (symbol << 1) + 0;
         }
         symbolCounter++;
-        if(symbolCounter % 4 == 0){
-            Serial.print("Symbol = ");
-            Serial.println(symbol);
-            symbolCounter = 0;
-            while(1);
+        if(symbolCounter % 5 == 0){
+            if(!preCodeFlag && symbol == preCode){
+              preCodeFlag = true;
+            }else if(preCodeFlag){
+            if(symbolCounter % 10 == 0) {
+              printOutput = (printOutput << 8) + decoding[symbol];
+              Serial.print(printOutput);
+              printOutput = 0;
+              symbolCounter = 0;
+            } else {
+              printOutput = decoding[symbol];
+            }
+              symbol = 0;
+            //Serial.print("Symbol = ");
+            //Serial.println(symbol);
+            
+          //  while(1);
+             }
           }
         sampleCounter += period;
         }
