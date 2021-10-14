@@ -13,6 +13,9 @@ char encoding[16] = { \
   0b01001, 0b11001, 0b01101, 0b10101, \
   0b01011, 0b11011, 0b00111, 0b10111  \
   };
+int charEncoded;
+int charBuffer;
+
 void setup() {
   // put your setup code here, to run once:
   pinMode(green, OUTPUT);
@@ -32,7 +35,8 @@ void sendZero(){
 }
 
 void sendData(int dataToSend){
-   while(dataToSend){
+   int bitNum = 0;
+   while(bitNum<5){
        //Serial.println(dataToSend&1);
        if(dataToSend & 1){
           digitalWrite(red, HIGH);
@@ -42,7 +46,8 @@ void sendData(int dataToSend){
           digitalWrite(red, LOW);
           delay(50); 
        }   
-       dataToSend=dataToSend>>1;  
+       dataToSend = dataToSend>>1;  
+       bitNum++;
    }
 }
 
@@ -72,9 +77,20 @@ void loop() {
   digitalWrite(red, LOW);
   delay(5000);
   sendData(precode);
+  //while(1);
   while (msgIdx < 12 && msg[msgIdx]!='\0'){
-    Serial.print(msg[msgIdx]);
-    sendData(encoding[msg[msgIdx]]);
+    charBuffer = msg[msgIdx];
+    charEncoded = encoding[(charBuffer>>4)];
+    //Serial.println(charBuffer>>4);
+    Serial.println(charEncoded);
+
+    sendData(charEncoded);
+    
+    charEncoded = encoding[(charBuffer&0xf)];
+    //Serial.println(charBuffer&0xf);
+    Serial.println(charEncoded);
+    sendData(charEncoded);
+    
     msgIdx++;
   }
   while(1);
