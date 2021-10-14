@@ -51,7 +51,7 @@ bool newBit = false;
 bool idle = true;
 const int settlingPoint = 120;
 int averagePeriod = 0;
-double period;
+double period;//used to be double
 int valueArray[2][windowSize];
 int tPeriod[windowSize];
 #define DATA 0
@@ -246,7 +246,7 @@ void loop() {
       }else if(!idle){
         sampleCounter--;
         //Serial.println(calData);
-        if(sampleCounter < 1){
+        if(sampleCounter < 0){
         //Serial.println(calData);
         //Serial.println(testCounter);
         if(calData < 50){
@@ -256,22 +256,25 @@ void loop() {
         }
         symbolCounter++;
         if(symbolCounter % 5 == 0){
+          Serial.println(symbol);
+
             if(!preCodeFlag && symbol == preCode){
-              preCodeFlag = true;
-            }else if(preCodeFlag){
-            if(symbolCounter % 10 == 0) {
-              printOutput = (printOutput << 8) + decoding[symbol];
-              Serial.print(printOutput);
-              printOutput = 0;
-              symbolCounter = 0;
-            } else {
-              printOutput = decoding[symbol];
-            }
-              symbol = 0;
-            //Serial.print("Symbol = ");
-            //Serial.println(symbol);
-            
-          //  while(1);
+                  preCodeFlag = true;
+                  symbol = 0;    
+             }else if(preCodeFlag){
+                  if(symbolCounter % 10 == 0) {
+                    printOutput = (printOutput << 8) + decoding[symbol];
+      //              Serial.print(printOutput);
+                    printOutput = 0;
+                    symbolCounter = 0;
+                  } else {
+                    printOutput = decoding[symbol];
+                  }
+                    symbol = 0;
+                  //Serial.print("Symbol = ");
+                  //Serial.println(symbol);
+                  
+                //  while(1);
              }
           }
         sampleCounter += period;
