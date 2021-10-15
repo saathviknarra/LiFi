@@ -44,9 +44,10 @@ char decoding[32] = {\
 };
 
 // circuler buffer
+int dataReceived[30];
 bool preCodeFlag = false;
 char printOutput = 0;   
-int symbol;
+int symbol = 0;
 bool newBit = false;
 bool idle = true;
 const int settlingPoint = 120;
@@ -230,41 +231,57 @@ void loop() {
   delay(100);
   digitalWrite(doneCalibrating, LOW);
   delay(2000);
-  int testCounter = 0;
+  int indexReceived = 0;
   while(1){
       sensorValue = analogRead(sensorPin);
       calData = (sensorValue - sum / windowSize) / (dataMax - dataMin) * 100 + 50;//can be replaced with up and lower bounds representiting 0 and 1
       //Serial.println(calData);
-      testCounter++;
       if(idle && calData < 50){
         //Serial.println(calData);
         //Serial.println(testCounter);
         //symbol = (symbol << 1) + 1;
         symbolCounter = 0;
         idle = !idle;
+//        Serial.println("Precode");
         sampleCounter = (period)/2;
       }else if(!idle){
         sampleCounter--;
         //Serial.println(calData);
+//        Serial.println(sampleCounter);
         if(sampleCounter < 0){
         //Serial.println(calData);
         //Serial.println(testCounter);
         if(calData < 50){
           symbol = (symbol << 1) + 1;
+//          Serial.println(symbol);
+//          Serial.println(1);
         }else{
           symbol = (symbol << 1) + 0;
+//          Serial.println(symbol);
+//          Serial.println(0);
         }
         symbolCounter++;
         if(symbolCounter % 5 == 0){
-          Serial.println(symbol);
-
             if(!preCodeFlag && symbol == preCode){
                   preCodeFlag = true;
                   symbol = 0;    
-             }else if(preCodeFlag){
+             }else if(!preCodeFlag){
+              symbol = 0;
+              idle = !idle;
+             }
+             else if(preCodeFlag){
+              dataReceived[indexReceived] = symbol;
+                if(indexReceived%6 == 5){
+                  idle = !idle;
+                  preCodeFlag = false;
+                }
+                if(indexReceived == 23){
+                  break;
+                }
+                indexReceived++;
                   if(symbolCounter % 10 == 0) {
-                    printOutput = (printOutput << 8) + decoding[symbol];
-      //              Serial.print(printOutput);
+                    printOutput = (printOutput << 4) + decoding[symbol];
+ //                   Serial.println(printOutput);
                     printOutput = 0;
                     symbolCounter = 0;
                   } else {
@@ -283,5 +300,8 @@ void loop() {
       
       //1010
       delay(2);
+  }
+  for(i = 0; i < 30; i++){
+   Serial.println(dataReceived[i]);
   }
 }
