@@ -10,7 +10,7 @@ char msg[15] = "Hello World!";
 char encoding[16] = { \
   0b01111, 0b10010, 0b00101, 0b10101, \
   0b01010, 0b11010, 0b01110, 0b11110, \
-  0b01001, 0b11001, 0b01101, 0b10101, \
+  0b01001, 0b11001, 0b01101, 0b11101, \
   0b01011, 0b11011, 0b00111, 0b10111  \
   };
 int charEncoded;
@@ -76,21 +76,24 @@ void loop() {
   Serial.print("\n");
   digitalWrite(red, LOW);
   delay(5000);
-  sendData(precode);
+  
   //while(1);
   while (msgIdx < 12 && msg[msgIdx]!='\0'){
+    if (msgIdx % 3 == 0) {
+      sendData(precode);
+    }
     charBuffer = msg[msgIdx];
-    charEncoded = encoding[(charBuffer>>4)];
+    charEncoded = encoding[(charBuffer&0xf)];
     //Serial.println(charBuffer>>4);
-    Serial.println(charEncoded);
+    //Serial.println(charEncoded);
 
     sendData(charEncoded);
     
-    charEncoded = encoding[(charBuffer&0xf)];
+    charEncoded = encoding[(charBuffer>>4)];
     //Serial.println(charBuffer&0xf);
-    Serial.println(charEncoded);
+    //Serial.println(charEncoded);
     sendData(charEncoded);
-    
+    Serial.println(int(charBuffer));
     msgIdx++;
   }
   while(1);
