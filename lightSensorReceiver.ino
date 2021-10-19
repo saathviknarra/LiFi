@@ -36,7 +36,8 @@ int button = 9;
 
 //for Manchester 4:5 encoding
 const int preCode = 21;
-char decoding[32] = {\
+const int fakePreCode = 26;
+int decoding[32] = {\
   0b0000, 0b0000, 0b0000, 0b0000, 0b0000, 0b0000, 0b0000, 0b0000,\
   0b0000, 0b0001, 0b0100, 0b0101, 0b0000, 0b0000, 0b0110, 0b0111,\
   0b0000, 0b0000, 0b1000, 0b1001, 0b0010, 0b0011, 0b1010, 0b1011,\
@@ -44,9 +45,10 @@ char decoding[32] = {\
 };
 
 // circuler buffer
+bool ignoreOnes = false;
 int dataReceived[30];
 bool preCodeFlag = false;
-char printOutput = 0;   
+int printOutput = 0;   
 int symbol = 0;
 bool newBit = false;
 bool idle = true;
@@ -236,8 +238,10 @@ void loop() {
       sensorValue = analogRead(sensorPin);
       calData = (sensorValue - sum / windowSize) / (dataMax - dataMin) * 100 + 50;//can be replaced with up and lower bounds representiting 0 and 1
       //Serial.println(calData);
-      if(idle && calData < 50){
-        //Serial.println(calData);
+      if(ignoreOnes && calData > 80){
+        ignoreOnes = false;
+      }else if(idle && calData < 50){
+//        Serial.println("A");
         //Serial.println(testCounter);
         //symbol = (symbol << 1) + 1;
         symbolCounter = 0;
@@ -264,28 +268,41 @@ void loop() {
         if(symbolCounter % 5 == 0){
             if(!preCodeFlag && symbol == preCode){
                   preCodeFlag = true;
-                  symbol = 0;    
-             }else if(!preCodeFlag){
+                  symbol = 0;
+                  symbolCounter = 0;    
+             } else if (!preCodeFlag && symbol == fakePreCode) {
+                 
+                  symbol = symbol & 0x0f;
+                  //Serial.println(symbol);
+                  symbolCounter = 4;
+             } else if(!preCodeFlag){
+//              Serial.println(symbol);
               symbol = 0;
               idle = !idle;
+              symbolCounter = 0;
              }
              else if(preCodeFlag){
-              dataReceived[indexReceived] = symbol;
-                if(indexReceived%6 == 5){
+              dataReceived[indexReceived] = int(decoding[symbol]);
+//                Serial.println(int(decoding[symbol]));
+                if(indexReceived%6 == 5){//add ending with 0 before switching to nonidle
+                  //ignoreOnes = true;
                   idle = !idle;
                   preCodeFlag = false;
                 }
                 if(indexReceived == 23){
                   break;
                 }
-                indexReceived++;
-                  if(symbolCounter % 10 == 0) {
-                    printOutput = (printOutput << 4) + decoding[symbol];
- //                   Serial.println(printOutput);
+                indexReceived++;//modulate by 6
+                  if(symbolCounter == 10) {
+                    printOutput = ( decoding[symbol] << 4) + printOutput;
+//                    Serial.print("2)");
+                    Serial.print(char(printOutput));
                     printOutput = 0;
                     symbolCounter = 0;
                   } else {
                     printOutput = decoding[symbol];
+//                    Serial.print("1)");
+//                    Serial.println(printOutput);
                   }
                     symbol = 0;
                   //Serial.print("Symbol = ");
@@ -301,7 +318,8 @@ void loop() {
       //1010
       delay(2);
   }
-  for(i = 0; i < 30; i++){
+  Serial.println("works");
+  for(i = 0; i < 24; i++){
    Serial.println(dataReceived[i]);
   }
 }
