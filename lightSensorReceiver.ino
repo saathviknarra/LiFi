@@ -46,7 +46,7 @@ int decoding[32] = {\
 
 // circuler buffer
 bool ignoreOnes = false;
-int dataReceived[30];
+char dataReceived[30];
 bool preCodeFlag = false;
 int printOutput = 0;   
 int symbol = 0;
@@ -220,7 +220,7 @@ void loop() {
     // print it
     //Serial.print(sum3/windowSize);
     //Serial.print("\n");
-    delay(2);
+    delayMicroseconds(2);
   }
   Serial.print("\n");
   Serial.print("Calibration Done!");
@@ -234,6 +234,7 @@ void loop() {
   digitalWrite(doneCalibrating, LOW);
   delay(2000);
   int indexReceived = 0;
+  int newIdx = 0;
   while(1){
       sensorValue = analogRead(sensorPin);
       calData = (sensorValue - sum / windowSize) / (dataMax - dataMin) * 100 + 50;//can be replaced with up and lower bounds representiting 0 and 1
@@ -282,21 +283,25 @@ void loop() {
               symbolCounter = 0;
              }
              else if(preCodeFlag){
-              dataReceived[indexReceived] = int(decoding[symbol]);
 //                Serial.println(int(decoding[symbol]));
                 if(indexReceived%6 == 5){//add ending with 0 before switching to nonidle
                   //ignoreOnes = true;
                   idle = !idle;
                   preCodeFlag = false;
                 }
-                if(indexReceived == 23){
-                  break;
-                }
+//                if(indexReceived == 23){
+//                  break;
+//                }
                 indexReceived++;//modulate by 6
                   if(symbolCounter == 10) {
                     printOutput = ( decoding[symbol] << 4) + printOutput;
 //                    Serial.print("2)");
-                    Serial.print(char(printOutput));
+                    Serial.println(char(printOutput));
+//                    dataReceived[newIdx] = char(printOutput);
+                    newIdx++;
+                    if(printOutput == 0){
+                      break;
+                    } 
                     printOutput = 0;
                     symbolCounter = 0;
                   } else {
@@ -316,10 +321,10 @@ void loop() {
       }
       
       //1010
-      delay(2);
+      delayMicroseconds(2);
   }
-  Serial.println("works");
-  for(i = 0; i < 24; i++){
-   Serial.println(dataReceived[i]);
-  }
+//  Serial.println(newIdx);
+//  for(i = 0; i < 24; i++){
+//   Serial.println(dataReceived[i]);
+//  }
 }
