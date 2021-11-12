@@ -27,10 +27,12 @@ def readInt():
     return strNum
 
 cnt = 0
+printList = []
 while True:
     #buf = readInt()
     cnt += 1
     buf = ser.read_until(expected=b'\n')
-    print([time.time(), int(buf)])
-    if cnt == 100:
+    printList.append([time.time(), int(buf)])
+    if cnt == 1000:
         break
+print(printList)
