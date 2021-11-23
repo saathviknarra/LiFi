@@ -24,7 +24,7 @@ void setup() {
   pinMode(red, OUTPUT);
   pinMode(ackPin, INPUT);
   pinMode(startSigPin, INPUT);
-  Serial.begin(9600); 
+  Serial.begin(9600);
 }
 
 //void sendOne(){
@@ -33,7 +33,7 @@ void setup() {
 //}
 //void sendZero(){
 //  digitalWrite(red, LOW);
-//  delay(DELAY);  
+//  delay(DELAY);
 //}
 
 void sendData(int dataToSend, int numbit){
@@ -46,9 +46,9 @@ void sendData(int dataToSend, int numbit){
           digitalWrite(red, LOW);
        } else {
           digitalWrite(red, LOW);
-          delay(DELAY); 
-       }   
-       dataToSend = dataToSend>>1;  
+          delay(DELAY);
+       }
+       dataToSend = dataToSend>>1;
        bitNum++;
    }
 }
@@ -78,7 +78,7 @@ void loop() {
   Serial.print("\n");
   digitalWrite(red, LOW);
   delay(5000);
-  
+
   //while(1);
   while (msgIdx < 12 && msg[msgIdx]!='\0'){
     if (msgIdx % 3 == 0) {
@@ -90,7 +90,7 @@ void loop() {
     Serial.println(charEncoded);
 
     sendData(charEncoded, 5);
-    
+
     charEncoded = encoding[(charBuffer>>4)];
     //Serial.println(charBuffer&0xf);
     Serial.println(charEncoded);

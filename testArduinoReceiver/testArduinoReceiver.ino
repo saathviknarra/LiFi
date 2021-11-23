@@ -8,5 +8,5 @@ void loop() {
   int val;
   val = analogRead(sensorPin);
   Serial.println(val);
-  delay(2);
+  //delay(1);
 }
