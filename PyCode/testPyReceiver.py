@@ -4,15 +4,23 @@ import os, fnmatch
 import matplotlib.pyplot as plt
 import collections
 import threading
-from queue import Queue
+import queue
 import numpy as np
 from scipy.signal import argrelextrema
 
 SAVE_COUNT = 2000
 BUFFER_LEN = 500
-SIG_ONE = 20
+SIG_ONE = 30
 SIG_ZERO = 80
 SIG_MID = 50
+PKT_LEN = 20
+PREAMBLE_CODE = 21
+decoding = [
+  0b0000, 0b0000, 0b0000, 0b0000, 0b0000, 0b0000, 0b0000, 0b0000,
+  0b0000, 0b0001, 0b0100, 0b0101, 0b0000, 0b0000, 0b0110, 0b0111,
+  0b0000, 0b0000, 0b1000, 0b1001, 0b0010, 0b0011, 0b1010, 0b1011,
+  0b0000, 0b0000, 0b1100, 0b1101, 0b1110, 0b1111, 0b0000, 0b0000
+]
 
 def find(pattern, path):
     result = []
@@ -26,8 +34,9 @@ def find(pattern, path):
 serPort = find('*tty.usbmodem*', '/dev/')[0]
 baudRate = 115200
 ser = serial.Serial(serPort, baudRate)
-sample_q = Queue()
-cal_q = Queue()
+sample_q = queue.Queue()
+cal_q = queue.Queue()
+payload_q = queue.Queue()
 cal_event = threading.Event()
 signal_range = 0
 signal_aver = 0
@@ -146,71 +155,147 @@ def calibration_thread(que, event):
 
 def preprocess_sig_thread(que_in, que_out, event):
     event.wait()
+    print("[PREPROCESS] wait calibration done")
+    while True:
+        try:
+            tmp = que_in.get(True, 1)
+            # Waits for 3 seconds, otherwise throws `Queue.Empty`
+        except queue.Empty:
+            break
     print("[PREPROCESS] start ...")
     global signal_aver
     global signal_range
     with que_in.mutex:
         que_in.queue.clear()
+    good_time = time.time()+1.2
+    good = False
     while True:
         in_data = que_in.get()
-        que_out.put((in_data[0]-signal_aver)/signal_range*100.0+50)
+        if good:
+            que_out.put((in_data[0]-signal_aver)/signal_range*100.0+50)
+        else:
+            if time.time() > good_time:
+                good = True
 
-def sig_to_dig_thread(que, event):
-    event.wait()
+def sig_to_dig_test_thread(que_in, que_out, event):
+
     print("[SIG_TO_DIG] start ...")
     start_flag = False
-    cur_index = 0
-    total_cnt = 0
-    whole_str = ""
-    prev_flag = -1
+    cur_index  = 0
+    total_cnt  = 0
+    whole_str  = ""
+    prev_flag  = -1
+    preamble_check = False
+    preamble_detect = 0
     global period
-    with que.mutex:
-        que.queue.clear()
+    event.wait()
+    with que_in.mutex:
+        que_in.queue.clear()
     while True:
-        cal_data = que.get()
+        cal_data = que_in.get()
         if cal_data < SIG_ONE and not start_flag:
             start_flag = True
-            cur_index = period
-            whole_str = "1"
-            total_cnt+=1
+            cur_index = period/2
+            whole_str = ""
+            #que_out.put(1)
+            total_cnt=0
         elif start_flag:
             cur_index = cur_index-1
             if cur_index < 1.0:
                 if cal_data < SIG_MID:
                     whole_str = whole_str+"1"
-                    if prev_flag == 1:
-                        break
-                    else:
-                        prev_flag = 1
                 else:
                     whole_str = whole_str+"0"
-                    if prev_flag == 0:
-                        break
-                    else:
-                        prev_flag = 0
-                total_cnt+=1
+
+                total_cnt += 1
                 cur_index += period
+
+            if total_cnt>100:
+                break
+    print("pkt_len:", total_cnt)
+    print("whole_str:", whole_str)
+
+def sig_to_dig_thread(que_in, que_out, event):
+    event.wait()
+    print("[SIG_TO_DIG] start ...")
+    start_flag = False
+    cur_index  = 0
+    whole_str  = ""
+    preamble_check = False
+    symbol_paresed = 0
+    bitcount = 0
+    global period
+    with que_in.mutex:
+        que_in.queue.clear()
+    while True:
+        cal_data = que_in.get()
+
+        if cal_data < SIG_MID and not start_flag:
+            print("[TRIGGER CAL DATA]", cal_data)
+            start_flag = True
+            preamble_check = False
+            cur_index = period/2
+            symbol_paresed = 0
+        elif start_flag:
+            cur_index = cur_index-1
+            if cur_index < 1.0:
+                if cal_data < SIG_MID:
+                    symbol_paresed = (symbol_paresed<<1+1)&0x1F
+                else:
+                    symbol_paresed = (symbol_paresed<<1+0)&0x1F
+                cur_index += period
+                bitcount  += 1
+                if not preamble_check:
+                    if symbol_paresed == PREAMBLE_CODE:
+                        preamble_check = True
+                        symbol_paresed = 0
+                        bitcount = 0
+                        total_cnt = 0
+                    else:
+                        continue
+                elif bitcount==5:
+                    total_cnt += 1
+                    que_out.put(symbol_paresed)
+                    symbol_paresed = 0
+                    if total_cnt == PKT_LEN:
+                        total_cnt = 0
+                        start_flag = False
             # if total_cnt>1000:
             #     break
     print("pkt_len:", total_cnt-2)
     print("whole_str:", whole_str)
 
+def extract_payload_thread(que_in, event):
+    event.wait()
+    print("[PAYLOAD_EXTRCTION] start ...")
+    while True:
+        payload_halfbyte = que_in.get()
+        payload_byte = (payload_halfbyte<<4) + que_in.get()
+        print()
 
-# def receiving_thread(que, event):
-thread_sampling = threading.Thread(target = sampling_thread, args = (sample_q, ))
-thread_calibration = threading.Thread(target = calibration_thread, args = (sample_q, cal_event, ))
-thread_preprocess_sig = threading.Thread(target = preprocess_sig_thread, args = (sample_q, cal_q, cal_event, ))
-thread_sig_to_dig = threading.Thread(target = sig_to_dig_thread, args = (cal_q, cal_event, ))
+DEBUG = 0
 
-# start all threads
-thread_sampling.start()
-thread_calibration.start()
-thread_preprocess_sig.start()
-thread_sig_to_dig.start()
+if DEBUG:
+    basic_print()
+else:
+    # def receiving_thread(que, event):
+    thread_sampling           = threading.Thread(target = sampling_thread, args = (sample_q, ))
+    thread_calibration        = threading.Thread(target = calibration_thread, args = (sample_q, cal_event, ))
+    thread_preprocess_sig     = threading.Thread(target = preprocess_sig_thread, args = (sample_q, cal_q, cal_event, ))
+    thread_sig_to_dig         = threading.Thread(target = sig_to_dig_test_thread, args = (cal_q, payload_q, cal_event, ))
+    thread_payload_extraction = threading.Thread(target = extract_payload_thread, args = (payload_q, cal_event, ))
+    #basic_print()
 
+    # start all threads
+    thread_sampling.start()
+    thread_calibration.start()
+    thread_preprocess_sig.start()
+    thread_sig_to_dig.start()
+    thread_payload_extraction.start()
 
-# join all threads
-thread_sampling.join()
-thread_calibration.join()
-thread_preprocess_sig.join()
-thread_sig_to_dig.join()
+    # join all threads
+    thread_sampling.join()
+    thread_calibration.join()
+    thread_preprocess_sig.join()
+    thread_sig_to_dig.join()
+    thread_payload_extraction.join()

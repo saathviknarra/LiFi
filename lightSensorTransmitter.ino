@@ -8,7 +8,8 @@ const char msg[] = "Hello World!";
 int msgIdx = 0;
 int precodeIdx = 105;
 int fullMesIdx = 5;
-bool fullmessage[5+(5*sizeof(msg))+((5*sizeof(msg))/100)*5] = {0};
+int fullmessageTotalLen = 0;
+bool fullmessage[500] = {0};
 char encoding[16] = { \
   0b01111, 0b10010, 0b00101, 0b10101, \
   0b01010, 0b11010, 0b01110, 0b11110, \
@@ -19,6 +20,7 @@ int charEncoded;
 int charBuffer;
 int firsthalf;
 int secondhalf;
+#define DELAY 3
 
 void setup() {
   // put your setup code here, to run once:
@@ -32,9 +34,11 @@ void setup() {
   fullmessage[2] = 1;
   fullmessage[3] = 0;
   fullmessage[4] = 1;
-  while((msgIdx % 20 != 0 || msgIdx == 0) && (msgIdx < sizeof(msg))) {
+  // while((msgIdx % 20 != 0 || msgIdx == 0) && (msgIdx < sizeof(msg))) {
+  fullmessageTotalLen = (sizeof(msg)*2+19)/20*105;
+  while(msgIdx < sizeof(msg)) {
     if(fullMesIdx == precodeIdx){
-      fullmessage[fullMesIdx] = 1;
+      fullmessage[fullMesIdx]   = 1;
       fullmessage[fullMesIdx+1] = 0;
       fullmessage[fullMesIdx+2] = 1;
       fullmessage[fullMesIdx+3] = 0;
@@ -99,49 +103,36 @@ void sendData(int dataToSend, int numbit){
 
 
 void loop() {
-  Serial.print("START");
   // wait for the switch to turn on once
-  while(1){
-    if(digitalRead(startSigPin)==0)
-      break;
-  }
-  Serial.print("START Calibration...");
+  while(digitalRead(startSigPin));
   // 0-1-alternation until signified by the sender
-  while(1) {
-    ackData=digitalRead(ackPin);
-    if (ackData){
-      break;
-    }
+  unsigned long endTime=millis()+2500;
+  unsigned long curTime=millis();
+  while(curTime<endTime) {
     digitalWrite(red, HIGH);
     delay(DELAY);
     digitalWrite(red, LOW);
     delay(DELAY);
-    //exit(0);
+    curTime=millis();
   }
-  Serial.print("Calibration done!!!");
-  Serial.print("\n");
   digitalWrite(red, LOW);
-  delay(5000);
+  delay(2000);
+
+  fullMesIdx = 0;
 
   //while(1);
-  while (msgIdx < 12 && msg[msgIdx]!='\0'){
-    if (msgIdx % 3 == 0) {
-      sendData(precode, 5);
+  while (fullMesIdx < fullmessageTotalLen){
+    if (fullmessage){
+      digitalWrite(red, HIGH);
+      delay(DELAY);
+    } else {
+      digitalWrite(red, LOW);
+      delay(DELAY);
     }
-    charBuffer = msg[msgIdx];
-    charEncoded = encoding[(charBuffer&0xf)];
-    //Serial.println(charBuffer>>4);
-    Serial.println(charEncoded);
-
-    sendData(charEncoded, 5);
-
-    charEncoded = encoding[(charBuffer>>4)];
-    //Serial.println(charBuffer&0xf);
-    Serial.println(charEncoded);
-    sendData(charEncoded, 5);
-    //Serial.println(int(charBuffer));
-    msgIdx++;
+    fullMesIdx++;
   }
+  digitalWrite(red, LOW);
+  delay(DELAY);
   while(1);
 
 }
