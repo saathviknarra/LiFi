@@ -195,10 +195,10 @@ def sig_to_dig_test_thread(que_in, que_out, event):
         cal_data = que_in.get()
         if cal_data < SIG_ONE and not start_flag:
             start_flag = True
-            cur_index = period/2
-            whole_str = ""
+            cur_index = period
+            whole_str = "1"
             #que_out.put(1)
-            total_cnt=0
+            total_cnt=1
         elif start_flag:
             cur_index = cur_index-1
             if cur_index < 1.0:
@@ -210,7 +210,7 @@ def sig_to_dig_test_thread(que_in, que_out, event):
                 total_cnt += 1
                 cur_index += period
 
-            if total_cnt>100:
+            if total_cnt>200:
                 break
     print("pkt_len:", total_cnt)
     print("whole_str:", whole_str)
@@ -229,23 +229,23 @@ def sig_to_dig_thread(que_in, que_out, event):
         que_in.queue.clear()
     while True:
         cal_data = que_in.get()
-
         if cal_data < SIG_MID and not start_flag:
             print("[TRIGGER CAL DATA]", cal_data)
             start_flag = True
             preamble_check = False
-            cur_index = period/2
+            cur_index = period/3
             symbol_paresed = 0
         elif start_flag:
             cur_index = cur_index-1
             if cur_index < 1.0:
                 if cal_data < SIG_MID:
-                    symbol_paresed = (symbol_paresed<<1+1)&0x1F
+                    symbol_paresed = ((symbol_paresed<<1)+1)&0x1F
                 else:
-                    symbol_paresed = (symbol_paresed<<1+0)&0x1F
+                    symbol_paresed = ((symbol_paresed<<1)+0)&0x1F
                 cur_index += period
                 bitcount  += 1
                 if not preamble_check:
+                    # print(symbol_paresed)
                     if symbol_paresed == PREAMBLE_CODE:
                         preamble_check = True
                         symbol_paresed = 0
@@ -255,23 +255,34 @@ def sig_to_dig_thread(que_in, que_out, event):
                         continue
                 elif bitcount==5:
                     total_cnt += 1
+                    #print(symbol_paresed)
                     que_out.put(symbol_paresed)
                     symbol_paresed = 0
+                    bitcount = 0
                     if total_cnt == PKT_LEN:
                         total_cnt = 0
                         start_flag = False
-            # if total_cnt>1000:
-            #     break
-    print("pkt_len:", total_cnt-2)
-    print("whole_str:", whole_str)
+
 
 def extract_payload_thread(que_in, event):
     event.wait()
     print("[PAYLOAD_EXTRCTION] start ...")
     while True:
-        payload_halfbyte = que_in.get()
-        payload_byte = (payload_halfbyte<<4) + que_in.get()
-        print()
+        data = que_in.get()
+        # print(data)
+
+        data = decoding[data]
+        payload_halfbyte = data
+        data = que_in.get()
+        # print(data)
+
+        data = decoding[data]
+        payload_byte = payload_halfbyte + (data<<4)
+        print(chr(payload_byte), end = ' ')
+        print(payload_byte)
+
+
+        payload_byte = 0
 
 DEBUG = 0
 
@@ -282,7 +293,7 @@ else:
     thread_sampling           = threading.Thread(target = sampling_thread, args = (sample_q, ))
     thread_calibration        = threading.Thread(target = calibration_thread, args = (sample_q, cal_event, ))
     thread_preprocess_sig     = threading.Thread(target = preprocess_sig_thread, args = (sample_q, cal_q, cal_event, ))
-    thread_sig_to_dig         = threading.Thread(target = sig_to_dig_test_thread, args = (cal_q, payload_q, cal_event, ))
+    thread_sig_to_dig         = threading.Thread(target = sig_to_dig_thread, args = (cal_q, payload_q, cal_event, ))
     thread_payload_extraction = threading.Thread(target = extract_payload_thread, args = (payload_q, cal_event, ))
     #basic_print()
 

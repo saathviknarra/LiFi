@@ -4,7 +4,7 @@ int ackPin = 10;
 int ackData;
 int startSigPin = 9;
 int precode = 21;
-const char msg[] = "Hello World!";
+const char msg[] = "Hello World! Let's send some packets!";
 int msgIdx = 0;
 int precodeIdx = 105;
 int fullMesIdx = 5;
@@ -16,11 +16,12 @@ char encoding[16] = { \
   0b01001, 0b11001, 0b01101, 0b11101, \
   0b01011, 0b11011, 0b00111, 0b10111  \
   };
+
 int charEncoded;
 int charBuffer;
 int firsthalf;
 int secondhalf;
-#define DELAY 3
+#define DELAY 10
 
 void setup() {
   // put your setup code here, to run once:
@@ -38,13 +39,16 @@ void setup() {
   fullmessageTotalLen = (sizeof(msg)*2+19)/20*105;
   while(msgIdx < sizeof(msg)) {
     if(fullMesIdx == precodeIdx){
-      fullmessage[fullMesIdx]   = 1;
+      fullmessage[fullMesIdx]   = 0;
       fullmessage[fullMesIdx+1] = 0;
-      fullmessage[fullMesIdx+2] = 1;
-      fullmessage[fullMesIdx+3] = 0;
-      fullmessage[fullMesIdx+4] = 1;
-      precodeIdx = precodeIdx + 105;
-      fullMesIdx = fullMesIdx + 5;
+      fullmessage[fullMesIdx+2] = 0;
+      fullmessage[fullMesIdx+3] = 1;
+      fullmessage[fullMesIdx+4] = 0;
+      fullmessage[fullMesIdx+5] = 1;
+      fullmessage[fullMesIdx+6] = 0;
+      fullmessage[fullMesIdx+7] = 1;
+      precodeIdx = precodeIdx + 108;
+      fullMesIdx = fullMesIdx + 8;
     }
     charBuffer = msg[msgIdx];
     firsthalf = encoding[(charBuffer&0xf)];
@@ -75,33 +79,6 @@ void setup() {
   }
 }
 
-//void sendOne(){
-//  digitalWrite(red, HIGH);
-//  delay(DELAY);
-//}
-//void sendZero(){
-//  digitalWrite(red, LOW);
-//  delay(DELAY);
-//}
-
-void sendData(int dataToSend, int numbit){
-   int bitNum = 0;
-   while(bitNum<numbit){
-       //Serial.println(dataToSend&1);
-       if(dataToSend & 1){
-          digitalWrite(red, HIGH);
-          delay(DELAY);
-          digitalWrite(red, LOW);
-       } else {
-          digitalWrite(red, LOW);
-          delay(DELAY);
-       }
-       dataToSend = dataToSend>>1;
-       bitNum++;
-   }
-}
-
-
 void loop() {
   // wait for the switch to turn on once
   while(digitalRead(startSigPin));
@@ -116,17 +93,20 @@ void loop() {
     curTime=millis();
   }
   digitalWrite(red, LOW);
-  delay(2000);
-
+  delay(5000);
+  //Serial.println("Cali done");
   fullMesIdx = 0;
 
-  //while(1);
+//  digitalWrite(red, HIGH);
+//  delay(DELAY);
   while (fullMesIdx < fullmessageTotalLen){
-    if (fullmessage){
+    if (fullmessage[fullMesIdx]){
       digitalWrite(red, HIGH);
+//      Serial.print("1");
       delay(DELAY);
     } else {
       digitalWrite(red, LOW);
+//      Serial.print("0");
       delay(DELAY);
     }
     fullMesIdx++;
